@@ -1,0 +1,44 @@
+SELECT *
+FROM vehicles;
+
+-- We have too many columns in this dataset.
+-- Let's start by looking at the description of the table and choosing the columns we need.
+
+SELECT COLUMN_NAME
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE table_name = 'vehicles';
+
+-- We have 84 columns but we might need only 'comb08', 'combA08', 'cylinders','displ', 'make','model','atvType','evMotor',`phevComb`, 'fuelCost08','fuelCostA08'
+	-- comb08 - combined MPG for fuelType1 (Gasoline only MPG)
+	-- combA08 - combined MPG for fuelType2 (EV-only MPG for PHEVs)
+	-- fuelCost08 - annual fuel cost for fuelType1 ($)
+	-- fuelCostA08 - annual fuel cost for fuelType2 ($)
+	-- (7) Annual fuel cost is based on 15,000 miles, 55% city driving, and the price of fuel used by the vehicle.
+	-- electric - $ per kw-hr of electricity(10)
+	-- (10) Fuel prices for E85, LPG, and CNG are from the Office of Energy Efficiency and Renewable Energy's Alternative Fuel Price Report and are updated quarterly
+	-- phevComb - overall efficiency for PHEVs
+SELECT make,model,[year], atvType,evMotor,phevComb, comb08, fuelCost08, combA08, fuelCostA08, cylinders,displ
+FROM vehicles
+GROUP BY make,model,[year], atvType,evMotor,phevComb, comb08, fuelCost08, combA08, fuelCostA08, cylinders,displ;
+
+-- Now, let's create a separate table to work on the data
+SELECT  
+TOP 0 make,model,[year], atvType,evMotor,phevComb, comb08, fuelCost08, combA08, fuelCostA08, cylinders,displ
+INTO vehicle_data
+FROM vehicles;
+
+WITH temp AS(
+	SELECT make, model, [year], atvType, evMotor, phevComb, comb08, fuelCost08, combA08, fuelCostA08, cylinders, displ,
+			ROW_NUMBER() OVER (PARTITION BY make,model, cylinders ORDER BY make,model, [year]) as rn
+			FROM vehicles
+)
+INSERT INTO vehicle_data (make,model,[year], atvType,evMotor,phevComb, comb08, fuelCost08, combA08, fuelCostA08, cylinders,displ)
+SELECT make,model,[year], atvType,evMotor,phevComb, comb08, fuelCost08, combA08, fuelCostA08, cylinders,displ
+FROM temp
+WHERE rn=1;
+
+SELECT *
+FROM vehicle_data;
+
+-- Now, we have a cleaner dataset, but there are things to work on {MENTION THAT THE SAME CAR WITH DIFFERENT VARIANTS IS MENTIONED A FEW TIMES}
+

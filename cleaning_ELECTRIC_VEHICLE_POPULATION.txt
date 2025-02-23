@@ -1,0 +1,94 @@
+-- Let's start with selecting the important columns and observing the information.
+SELECT 
+	make,
+	model_year,
+	electric_vehicle_type,
+	electric_range
+FROM Electric_Vehicle_Population_Data;
+
+-- As we will be working with these columns, it makes sense to create a separate table.
+CREATE TABLE EV (
+	make varchar(20),
+	model_year int,
+	model varchar(50),
+	EV_type varchar(100),
+	EV_range int
+);
+
+-- Now, we need to populate the table with the info from the original table.
+-- We will insert using SELECT
+INSERT INTO EV
+SELECT 
+	make,
+	model_year,
+	model,
+	electric_vehicle_type,
+	electric_range
+FROM Electric_Vehicle_Population_Data; 
+
+-- Let's review our EV table and confirm that the information has been inserted.
+SELECT *
+FROM EV;
+
+-- Now, let's start working on data.
+
+-- First, some of the entries are missing the information about the electric range.
+-- These will be deleted, as they don't provide any useful data.
+DELETE
+FROM EV
+WHERE EV_range = 0;
+
+-- Quite a few rows have been affected, but we still have enough data left for our purposes.
+
+-- Now, let's work with EV_type column and simplify it.
+
+-- Find the distinct types of vehicles and remove the full names, leaving the abbreviations.
+SELECT 
+	DISTINCT(EV_type)
+FROM EV;
+
+UPDATE EV
+SET EV_type = CASE
+				WHEN EV_type = 'Battery Electric Vehicle (BEV)' THEN 'BEV'
+				WHEN EV_type = 'Plug-in Hybrid Electric Vehicle (PHEV)' THEN 'PHEV'
+			  END;
+	
+
+-- We will look at the data of cars that are not older than 10 years {GIVE THE JUSTIFICATION IN THE REPORT}
+-- The rest can be deleted.
+DELETE
+FROM EV
+WHERE (YEAR(GETDATE()) -  model_year)>10;
+
+-- Now, let's analyze the dataset and see if we have duplicates.
+SELECT *
+FROM EV
+ORDER BY model, model_year ASC;
+
+-- We can see many duplicates in the table.
+
+-- To get rid of duplicates, we will PARTITION BY the columns that correspond to the composite primary key:
+-- make, model, EV_type
+
+-- First, create a new table with the same structure as `EV` table
+SELECT
+TOP 0 *
+INTO EV_data
+FROM EV;
+
+-- Now, insert the unique data from the `EV` table into `temp_table`
+WITH ranked AS(
+	SELECT *,
+		   ROW_NUMBER() OVER (PARTITION BY make, model, EV_type ORDER BY EV_range) AS rn
+	FROM EV
+)
+INSERT INTO EV_data	(make, model_year, model, EV_type, EV_range)
+SELECT make, model_year, model, EV_type, EV_range
+FROM ranked
+WHERE rn = 1;
+
+-- Confirm that we now only have distinct values
+SELECT *
+FROM EV_data
+ORDER BY make, model ASC;
+
